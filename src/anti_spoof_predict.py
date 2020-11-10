@@ -13,9 +13,9 @@ import numpy as np
 import torch.nn.functional as F
 
 
-from src.model_lib.MiniFASNet import MiniFASNetV1, MiniFASNetV2,MiniFASNetV1SE,MiniFASNetV2SE
-from src.data_io import transform as trans
-from src.utility import get_kernel, parse_model_name
+from .model_lib.MiniFASNet import MiniFASNetV1, MiniFASNetV2,MiniFASNetV1SE,MiniFASNetV2SE
+from .data_io import transform as trans
+from .utility import get_kernel, parse_model_name
 
 MODEL_MAPPING = {
     'MiniFASNetV1': MiniFASNetV1,
@@ -27,34 +27,37 @@ MODEL_MAPPING = {
 
 class Detection:
     def __init__(self):
-        caffemodel = "./resources/detection_model/Widerface-RetinaFace.caffemodel"
-        deploy = "./resources/detection_model/deploy.prototxt"
-        self.detector = cv2.dnn.readNetFromCaffe(deploy, caffemodel)
-        self.detector_confidence = 0.6
+        print("")
+        # caffemodel = "/home/e-concierge/project/slocker/SilentFaceAntiSpoofing/resources/detection_model/Widerface-RetinaFace.caffemodel"
+        # deploy = "/home/e-concierge/project/slocker/SilentFaceAntiSpoofing/resources/detection_model/deploy.prototxt"
+        # self.detector = cv2.dnn.readNetFromCaffe(deploy, caffemodel)
+        # self.detector_confidence = 0.6
 
     def get_bbox(self, img):
-        height, width = img.shape[0], img.shape[1]
-        aspect_ratio = width / height
-        if img.shape[1] * img.shape[0] >= 192 * 192:
-            img = cv2.resize(img,
-                             (int(192 * math.sqrt(aspect_ratio)),
-                              int(192 / math.sqrt(aspect_ratio))), interpolation=cv2.INTER_LINEAR)
+        print("")
+        # height, width = img.shape[0], img.shape[1]
+        # aspect_ratio = width / height
+        # if img.shape[1] * img.shape[0] >= 192 * 192:
+        #     img = cv2.resize(img,
+        #                      (int(192 * math.sqrt(aspect_ratio)),
+        #                       int(192 / math.sqrt(aspect_ratio))), interpolation=cv2.INTER_LINEAR)
 
-        blob = cv2.dnn.blobFromImage(img, 1, mean=(104, 117, 123))
-        self.detector.setInput(blob, 'data')
-        out = self.detector.forward('detection_out').squeeze()
-        max_conf_index = np.argmax(out[:, 2])
-        left, top, right, bottom = out[max_conf_index, 3]*width, out[max_conf_index, 4]*height, \
-                                   out[max_conf_index, 5]*width, out[max_conf_index, 6]*height
-        bbox = [int(left), int(top), int(right-left+1), int(bottom-top+1)]
-        return bbox
+        # blob = cv2.dnn.blobFromImage(img, 1, mean=(104, 117, 123))
+        # self.detector.setInput(blob, 'data')
+        # out = self.detector.forward('detection_out').squeeze()
+        # max_conf_index = np.argmax(out[:, 2])
+        # left, top, right, bottom = out[max_conf_index, 3]*width, out[max_conf_index, 4]*height, \
+        #                            out[max_conf_index, 5]*width, out[max_conf_index, 6]*height
+        # bbox = [int(left), int(top), int(right-left+1), int(bottom-top+1)]
+        # return bbox
 
 
 class AntiSpoofPredict(Detection):
-    def __init__(self, device_id):
+    def __init__(self, device_id, weights_path):
         super(AntiSpoofPredict, self).__init__()
         self.device = torch.device("cuda:{}".format(device_id)
                                    if torch.cuda.is_available() else "cpu")
+        self._load_model(weights_path)
 
     def _load_model(self, model_path):
         # define model
@@ -76,16 +79,17 @@ class AntiSpoofPredict(Detection):
             self.model.load_state_dict(new_state_dict)
         else:
             self.model.load_state_dict(state_dict)
+        self.model.eval()
         return None
 
-    def predict(self, img, model_path):
+    def predict(self, img):
         test_transform = trans.Compose([
             trans.ToTensor(),
         ])
         img = test_transform(img)
         img = img.unsqueeze(0).to(self.device)
-        self._load_model(model_path)
-        self.model.eval()
+        # self._load_model(model_path)
+        # self.model.eval()
         with torch.no_grad():
             result = self.model.forward(img)
             result = F.softmax(result).cpu().numpy()

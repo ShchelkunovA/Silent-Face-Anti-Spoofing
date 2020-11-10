@@ -46,6 +46,7 @@ def to_tensor(pic):
         Tensor: Converted image.
     """
     if not(_is_pil_image(pic) or _is_numpy_image(pic)):
+        print('pic should be PIL Image or ndarray. Got {} pic.shape {}'.format(type(pic), pic.shape))
         raise TypeError('pic should be PIL Image or ndarray. Got {}'.format(type(pic)))
 
     if isinstance(pic, np.ndarray):
